@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using QuestionsAnswers_API.Controllers.Models;
 using QuestionsAnswers_API.Controllers.Models.Dto;
 using QuestionsAnswers_API.Data;
@@ -19,23 +20,23 @@ namespace QuestionsAnswers_API.Controllers
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public ActionResult<IEnumerable<QuestionDto>> GetQuestions()
+        public async Task<ActionResult<IEnumerable<QuestionDto>>> GetQuestions()
         {
-            return Ok(_dbContext.Questions.ToList());
+            return Ok(await _dbContext.Questions.ToListAsync());
         }
 
         [HttpGet("id:int", Name ="GetQuestion")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public ActionResult<QuestionDto> GetQuestion(int id)
+        public async Task<ActionResult<QuestionDto>> GetQuestion(int id)
         {
             if(id == 0)
             {
                 return BadRequest();
             }
 
-            var question = _dbContext.Questions.FirstOrDefault(q => q.Id == id);
+            var question = await _dbContext.Questions.FirstOrDefaultAsync(q => q.Id == id);
 
             if(question == null)
             {
@@ -49,7 +50,7 @@ namespace QuestionsAnswers_API.Controllers
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<QuestionDto>  CreateQuestion([FromBody] QuestionDto questionDto)
+        public async Task<ActionResult<QuestionDto>>  CreateQuestion([FromBody] QuestionDto questionDto)
         {
             if (!ModelState.IsValid)
             {
@@ -72,8 +73,8 @@ namespace QuestionsAnswers_API.Controllers
                 Creationdate = DateTime.Now   
             };
 
-            _dbContext.Add(model);
-            _dbContext.SaveChanges();
+            await _dbContext.AddAsync(model);
+            await _dbContext.SaveChangesAsync();
 
             return CreatedAtRoute("GetQuestion", new {Id= questionDto.Id}, questionDto);
         }
