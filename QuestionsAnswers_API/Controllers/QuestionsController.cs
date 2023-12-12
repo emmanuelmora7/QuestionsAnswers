@@ -9,15 +9,16 @@ namespace QuestionsAnswers_API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class QuestionsAnswersController : ControllerBase
+    public class QuestionsController : ControllerBase
     {
         private readonly ApplicationDBContext _dbContext;
 
-        public QuestionsAnswersController(ApplicationDBContext dbContext)
+        public QuestionsController(ApplicationDBContext dbContext)
         {
             _dbContext = dbContext;
         }
 
+        //Get all questions
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult<IEnumerable<QuestionDto>>> GetQuestions()
@@ -25,18 +26,23 @@ namespace QuestionsAnswers_API.Controllers
             return Ok(await _dbContext.Questions.ToListAsync());
         }
 
+        //Get questions by tag 
         [HttpGet("id:int", Name ="GetQuestion")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<QuestionDto>> GetQuestion(int id)
+        public async Task<ActionResult<QuestionDto>> GetQuestionByTag(string tag)
         {
-            if(id == 0)
+            if(tag == "")
             {
                 return BadRequest();
             }
 
-            var question = await _dbContext.Questions.FirstOrDefaultAsync(q => q.Id == id);
+            var question = await (from q in _dbContext.Questions
+                            join t in _dbContext.QuestionTag
+                            on q.Id equals t.QuestionId
+                            where t.TagDescription.Contains(tag)
+                            select new {q.Id, q.Description, t.TagDescription}).ToListAsync();
 
             if(question == null)
             {
@@ -46,6 +52,7 @@ namespace QuestionsAnswers_API.Controllers
             return Ok(question);
         }
 
+        //Create a new question
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -61,14 +68,9 @@ namespace QuestionsAnswers_API.Controllers
             {
                 return BadRequest(questionDto);
             }
-            if(questionDto.Id > 0)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError);
-            }
 
             Question model = new()
             {
-                Id = questionDto.Id,
                 Description = questionDto.Description,
                 Creationdate = DateTime.Now   
             };
@@ -76,7 +78,18 @@ namespace QuestionsAnswers_API.Controllers
             await _dbContext.AddAsync(model);
             await _dbContext.SaveChangesAsync();
 
+            QuestionTag modelTag = new()
+            {
+                TagDescription = questionDto.TagDescription,
+                QuestionId = model.Id,
+                Creationdate = DateTime.Now
+            };
+
+            await _dbContext.AddAsync(modelTag);
+            await _dbContext.SaveChangesAsync();
+
             return CreatedAtRoute("GetQuestion", new {Id= questionDto.Id}, questionDto);
         }
+
     }
 }
